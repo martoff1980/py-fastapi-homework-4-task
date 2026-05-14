@@ -116,7 +116,7 @@ async def create_profile(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or not active.",
+            detail="Token has expired.",
         )
 
     if not user.is_active:

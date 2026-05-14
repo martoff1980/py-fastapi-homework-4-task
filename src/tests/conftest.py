@@ -3,22 +3,26 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import get_settings, get_accounts_email_notificator, get_s3_storage_client
-from database import (
+from src.config import get_settings, get_accounts_email_notificator, get_s3_storage_client
+from src.database import (
     reset_database,
+    
     get_db_contextmanager,
     UserGroupEnum,
     UserGroupModel,
 )
-from database.populate import CSVDatabaseSeeder
-from main import app
-from security.interfaces import JWTAuthManagerInterface
-from security.token_manager import JWTAuthManager
-from storages import S3StorageClient
-from tests.doubles.fakes.storage import FakeS3Storage
-from tests.doubles.stubs.emails import StubEmailSender
+from src.database.populate import CSVDatabaseSeeder
+from src.main import app
+from src.security.interfaces import JWTAuthManagerInterface
+from src.security.token_manager import JWTAuthManager
+from src.storages import S3StorageClient
+from src.tests.doubles.fakes.storage import FakeS3Storage
+from src.tests.doubles.stubs.emails import StubEmailSender
 
-
+from src.database.models.accounts import UserModel, UserProfileModel
+from src.database.models.base import Base
+from src.database.session_sqlite import sqlite_engine as engine
+ 
 def pytest_configure(config):
     config.addinivalue_line("markers", "e2e: End-to-end tests")
     config.addinivalue_line("markers", "order: Specify the order of test execution")
@@ -40,6 +44,14 @@ async def reset_db(request):
         await reset_database()
         yield
 
+@pytest_asyncio.fixture(scope="function",  autouse=True)
+async def setup_e2e_database():
+    async with engine.begin() as conn:
+        # Создаем все таблицы перед началом E2E сессии
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
 @pytest_asyncio.fixture(scope="session")
 async def reset_db_once_for_e2e(request):
