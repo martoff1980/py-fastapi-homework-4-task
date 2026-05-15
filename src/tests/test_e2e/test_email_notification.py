@@ -458,7 +458,7 @@ async def test_user_login_with_new_password(created_user, e2e_client, e2e_db_ses
     user = (await e2e_db_session.execute(stmt)).scalars().first()
 
     print("DB PASSWORD HASH:", user.hashed_password)
-    print("VERIFY NEW:", user.verify_password("NewSecurePassword123!"))
+    print("VERIFY NEW:", user.verify_password("12345678"))
 
     user_data = {"email": "test@mate.com", "password": "NewSecurePassword123!"}
 
