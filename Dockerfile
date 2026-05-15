@@ -49,4 +49,4 @@ RUN dos2unix /commands/*.sh
 # Add execute bit to commands files
 RUN chmod +x /commands/*.sh
 
-ENV PYTHONPATH=/usr/src/app
+ENV PYTHONPATH=/usr/src/fastapi
