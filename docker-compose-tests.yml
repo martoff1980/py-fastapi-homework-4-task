@@ -81,6 +81,27 @@ services:
     networks:
       - theater_network_test
 
+backend_test:
+  build: .
+  container_name: backend_theater_test
+  command: ['pytest', '-q']
+  env_file:
+    - .env
+  environment:
+    DATABASE_URL: postgresql://postgres:postgres@test_db:5432/test_db
+    PYTHONPATH: /usr/src/fastapi
+    LOG_LEVEL: debug
+  working_dir: /usr/src/fastapi
+  volumes:
+    - .:/usr/src/fastapi
+  depends_on:
+    test_db:
+      condition: service_healthy
+    migrator:
+      condition: service_completed_successfully
+    networks:
+      - theater_network
+
 volumes:
   minio_data_test:
     driver: local
