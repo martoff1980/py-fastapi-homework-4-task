@@ -13,7 +13,7 @@ class BaseAppSettings(BaseSettings):
         BASE_DIR / "database" / "seed_data" / "imdb_movies.csv"
     )
     BASE_URL: str = "http://localhost:8000"
-    
+
     PATH_TO_EMAIL_TEMPLATES_DIR: str = str(BASE_DIR / "notifications" / "templates")
     ACTIVATION_EMAIL_TEMPLATE_NAME: str = "activation_request.html"
     ACTIVATION_COMPLETE_EMAIL_TEMPLATE_NAME: str = "activation_complete.html"

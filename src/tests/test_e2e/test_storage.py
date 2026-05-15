@@ -10,7 +10,9 @@ from src.database import UserModel, UserProfileModel
 @pytest.mark.e2e
 @pytest.mark.order(7)
 @pytest.mark.asyncio
-async def test_create_user_profile(e2e_client, e2e_db_session, settings, s3_client):
+async def test_create_user_profile(
+    test_duplicate_user, e2e_client, e2e_db_session, settings, s3_client
+):
     """
     End-to-end test for creating a user profile with avatar upload (async + aioboto3.Session version).
 

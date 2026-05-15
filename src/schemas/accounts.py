@@ -4,7 +4,7 @@ from pydantic import BaseModel, EmailStr, field_validator, ConfigDict, AnyHttpUr
 from src.database import accounts_validators
 
 from typing import Annotated
-from pydantic import BaseModel, UrlConstraints, AnyUrl
+
 
 class BaseEmailPasswordSchema(BaseModel):
     email: EmailStr
@@ -77,7 +77,7 @@ class UserLoginResponseSchema(BaseModel):
 class UserRegistrationResponseSchema(BaseModel):
     id: int
     email: EmailStr
-    
+
     model_config = {"from_attributes": True}
 
 

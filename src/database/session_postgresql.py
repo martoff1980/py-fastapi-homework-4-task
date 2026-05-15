@@ -53,6 +53,7 @@ async def get_postgresql_db_contextmanager() -> AsyncGenerator[AsyncSession, Non
     async with AsyncPostgresqlSessionLocal() as session:
         yield session
 
+
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Get database session."""
     # Если мы в тестах, используем SQLite сессию
