@@ -1,3 +1,4 @@
+import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import insert
@@ -127,7 +128,7 @@ async def client(email_sender_stub, s3_storage_fake):
     app.dependency_overrides.clear()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="function")
 async def e2e_client():
     """
     Provide an asynchronous HTTP client for end-to-end tests.
@@ -152,7 +153,7 @@ async def db_session():
         yield session
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="function")
 async def e2e_db_session():
     """
     Provide an async database session for end-to-end tests.
@@ -221,3 +222,69 @@ async def seed_database(db_session):
         await seeder.seed()
 
     yield db_session
+
+import pytest
+from sqlalchemy import select
+
+from src.database import UserModel, ActivationTokenModel
+from src.security.passwords import hash_password
+
+@pytest.fixture
+async def created_user(e2e_db_session):
+    # Создаем юзера
+    user = UserModel(
+        email="test@mate.com",
+        hashed_password=hash_password("12345678"),
+        group_id=1,
+        # is_active=False,
+    )
+
+    e2e_db_session.add(user)
+    await e2e_db_session.flush()
+
+    # Создаем токен
+    activation_token = ActivationTokenModel(
+        user_id=user.id
+    )
+
+    e2e_db_session.add(activation_token)
+
+    await e2e_db_session.commit()
+
+    # Обновляем объекты
+    await e2e_db_session.refresh(user)
+    await e2e_db_session.refresh(activation_token)
+
+    return {
+        "user": user,
+        "activation_token": activation_token,
+    }
+
+@pytest.fixture
+async def active_use(e2e_client, e2e_db_session):
+    user = UserModel(
+        email="test@mate.com",
+        hashed_password=hash_password("StrongPassword123!"),
+        is_active=True,
+        group_id=1,
+    )
+
+    e2e_db_session.add(user)
+    await e2e_db_session.commit()
+    
+    return user
+
+@pytest.fixture
+async def refresh_active_use(e2e_client, e2e_db_session):
+    user = UserModel(
+        email="test@mate.com",
+        hashed_password=hash_password("StrongPassword123!"),
+        is_active=True,
+        group_id=1,
+    )
+
+    e2e_db_session.add(user)
+    await e2e_db_session.commit()
+    await e2e_db_session.refresh(user)
+    
+    return user

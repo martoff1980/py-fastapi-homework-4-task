@@ -21,6 +21,9 @@ from src.database.validators import accounts as validators
 from src.security.passwords import hash_password, verify_password
 from src.security.utils import generate_secure_token
 
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class UserGroupEnum(str, enum.Enum):
     USER = "user"
@@ -54,7 +57,7 @@ class UserModel(Base):
     email: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False, index=True
     )
-    _hashed_password: Mapped[str] = mapped_column(
+    hashed_password: Mapped[str] = mapped_column(
         "hashed_password", String(255), nullable=False
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -125,13 +128,13 @@ class UserModel(Base):
         Set the user's password after validating its strength and hashing it.
         """
         validators.validate_password_strength(raw_password)
-        self._hashed_password = hash_password(raw_password)
+        self.hashed_password = hash_password(raw_password)
 
     def verify_password(self, raw_password: str) -> bool:
         """
         Verify the provided password against the stored hashed password.
         """
-        return verify_password(raw_password, self._hashed_password)
+        return verify_password(raw_password, self.hashed_password)
 
     @validates("email")
     def validate_email(self, key, value):
