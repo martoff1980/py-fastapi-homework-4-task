@@ -1,2 +1,2 @@
-from src.notifications.interfaces import EmailSenderInterface
-from src.notifications.emails import EmailSender
+from notifications.interfaces import EmailSenderInterface
+from notifications.emails import EmailSender

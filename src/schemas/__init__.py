@@ -3,7 +3,7 @@ from src.schemas.movies import (
     MovieListResponseSchema,
     MovieListItemSchema,
     MovieCreateSchema,
-    MovieUpdateSchema,
+    MovieUpdateSchema
 )
 from src.schemas.accounts import (
     UserRegistrationRequestSchema,
@@ -15,5 +15,5 @@ from src.schemas.accounts import (
     UserLoginResponseSchema,
     UserLoginRequestSchema,
     TokenRefreshRequestSchema,
-    TokenRefreshResponseSchema,
+    TokenRefreshResponseSchema
 )

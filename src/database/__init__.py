@@ -8,7 +8,7 @@ from src.database.models.accounts import (
     ActivationTokenModel,
     PasswordResetTokenModel,
     RefreshTokenModel,
-    UserProfileModel,
+    UserProfileModel
 )
 from src.database.models.movies import (
     MovieModel,
@@ -18,7 +18,7 @@ from src.database.models.movies import (
     CountryModel,
     MoviesGenresModel,
     ActorsMoviesModel,
-    MoviesLanguagesModel,
+    MoviesLanguagesModel
 )
 from src.database.session_sqlite import reset_sqlite_database as reset_database
 from src.database.validators import accounts as accounts_validators
@@ -28,10 +28,10 @@ environment = os.getenv("ENVIRONMENT", "developing")
 if environment == "testing":
     from src.database.session_sqlite import (
         get_sqlite_db_contextmanager as get_db_contextmanager,
-        get_sqlite_db as get_db,
+        get_sqlite_db as get_db
     )
 else:
     from src.database.session_postgresql import (
         get_postgresql_db_contextmanager as get_db_contextmanager,
-        get_postgresql_db as get_db,
+        get_postgresql_db as get_db
     )

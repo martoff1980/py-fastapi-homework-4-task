@@ -1,21 +1,18 @@
-import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+# from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from src.config import (
-    get_settings,
-    get_accounts_email_notificator,
-    get_s3_storage_client,
-)
+from src.config import get_settings, get_accounts_email_notificator, get_s3_storage_client
 from src.database import (
     reset_database,
     get_db_contextmanager,
     UserGroupEnum,
-    UserGroupModel,
+    UserGroupModel
 )
 from src.database.populate import CSVDatabaseSeeder
+from src.database.models.base import Base
 from src.main import app
 from src.security.interfaces import JWTAuthManagerInterface
 from src.security.token_manager import JWTAuthManager
@@ -23,15 +20,17 @@ from src.storages import S3StorageClient
 from src.tests.doubles.fakes.storage import FakeS3Storage
 from src.tests.doubles.stubs.emails import StubEmailSender
 
-from src.database.models.accounts import UserModel, UserProfileModel
-from src.database.models.base import Base
-from src.database.session_sqlite import sqlite_engine as engine
-
 
 def pytest_configure(config):
-    config.addinivalue_line("markers", "e2e: End-to-end tests")
-    config.addinivalue_line("markers", "order: Specify the order of test execution")
-    config.addinivalue_line("markers", "unit: Unit tests")
+    config.addinivalue_line(
+        "markers", "e2e: End-to-end tests"
+    )
+    config.addinivalue_line(
+        "markers", "order: Specify the order of test execution"
+    )
+    config.addinivalue_line(
+        "markers", "unit: Unit tests"
+    )
 
 
 @pytest_asyncio.fixture(scope="function", autouse=True)
@@ -48,16 +47,6 @@ async def reset_db(request):
     else:
         await reset_database()
         yield
-
-
-@pytest_asyncio.fixture(scope="function", autouse=True)
-async def setup_e2e_database():
-    async with engine.begin() as conn:
-        # Создаем все таблицы перед началом E2E сессии
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -112,7 +101,7 @@ async def s3_client(settings):
         endpoint_url=settings.S3_STORAGE_ENDPOINT,
         access_key=settings.S3_STORAGE_ACCESS_KEY,
         secret_key=settings.S3_STORAGE_SECRET_KEY,
-        bucket_name=settings.S3_BUCKET_NAME,
+        bucket_name=settings.S3_BUCKET_NAME
     )
 
 
@@ -126,24 +115,20 @@ async def client(email_sender_stub, s3_storage_fake):
     app.dependency_overrides[get_accounts_email_notificator] = lambda: email_sender_stub
     app.dependency_overrides[get_s3_storage_client] = lambda: s3_storage_fake
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as async_client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as async_client:
         yield async_client
 
     app.dependency_overrides.clear()
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest_asyncio.fixture(scope="session")
 async def e2e_client():
     """
     Provide an asynchronous HTTP client for end-to-end tests.
 
     This client is available at the session scope.
     """
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as async_client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as async_client:
         yield async_client
 
 
@@ -159,7 +144,7 @@ async def db_session():
         yield session
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest_asyncio.fixture(scope="session")
 async def e2e_db_session():
     """
     Provide an async database session for end-to-end tests.
@@ -190,7 +175,7 @@ async def jwt_manager() -> JWTAuthManagerInterface:
     return JWTAuthManager(
         secret_key_access=settings.SECRET_KEY_ACCESS,
         secret_key_refresh=settings.SECRET_KEY_REFRESH,
-        algorithm=settings.JWT_SIGNING_ALGORITHM,
+        algorithm=settings.JWT_SIGNING_ALGORITHM
     )
 
 
@@ -220,109 +205,9 @@ async def seed_database(db_session):
     :type db_session: AsyncSession
     """
     settings = get_settings()
-    seeder = CSVDatabaseSeeder(
-        csv_file_path=settings.PATH_TO_MOVIES_CSV, db_session=db_session
-    )
+    seeder = CSVDatabaseSeeder(csv_file_path=settings.PATH_TO_MOVIES_CSV, db_session=db_session)
 
     if not await seeder.is_db_populated():
         await seeder.seed()
 
     yield db_session
-
-
-import pytest
-from sqlalchemy import select
-
-from src.database import UserModel, ActivationTokenModel
-from src.security.passwords import hash_password
-from sqlalchemy import select
-
-
-@pytest.fixture
-async def created_user(e2e_db_session):
-    # Создаем юзера
-    user = UserModel(
-        email="test@mate.com",
-        hashed_password=hash_password("12345678"),
-        group_id=1,
-        # is_active=False,
-    )
-
-    e2e_db_session.add(user)
-    await e2e_db_session.flush()
-
-    # Создаем токен
-    activation_token = ActivationTokenModel(user_id=user.id)
-
-    e2e_db_session.add(activation_token)
-
-    await e2e_db_session.commit()
-
-    # Обновляем объекты
-    await e2e_db_session.refresh(user)
-    await e2e_db_session.refresh(activation_token)
-
-    return {
-        "user": user,
-        "activation_token": activation_token,
-    }
-
-
-@pytest.fixture
-async def active_use(e2e_client, e2e_db_session):
-    user = UserModel(
-        email="test@mate.com",
-        hashed_password=hash_password("StrongPassword123!"),
-        is_active=True,
-        group_id=1,
-    )
-
-    e2e_db_session.add(user)
-    await e2e_db_session.commit()
-
-    return user
-
-
-@pytest.fixture
-async def refresh_active_use(e2e_client, e2e_db_session):
-    user = UserModel(
-        email="test@mate.com",
-        hashed_password=hash_password("StrongPassword123!"),
-        is_active=True,
-        group_id=1,
-    )
-
-    e2e_db_session.add(user)
-    await e2e_db_session.flush()
-    # await e2e_db_session.commit()
-    await e2e_db_session.refresh(user)
-
-    return user
-
-
-@pytest.fixture
-async def test_duplicate_user(e2e_db_session):
-    email = "test@mate.com"
-    password = "NewSecurePassword123!"
-    is_active = (True,)
-    group_id = 1
-
-    # проверяем, чтобы не создавать дубль
-    result = await e2e_db_session.execute(
-        select(UserModel).where(UserModel.email == email)
-    )
-    user = result.scalars().first()
-
-    if user:
-        return user
-
-    user = UserModel(
-        email=email, hashed_password=hash_password(password), is_active=True, group_id=1
-    )
-
-    e2e_db_session.add(user)
-
-    await e2e_db_session.commit()
-    await e2e_db_session.refresh(user)
-
-    return user
