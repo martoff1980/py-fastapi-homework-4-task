@@ -3,9 +3,9 @@ from datetime import date
 from io import BytesIO
 
 from PIL import Image
-from fastapi import UploadFile
+from fastapi import UploadFile, HTTPException, status
 
-from src.database.models.accounts import GenderEnum
+from src.database.models.accounts import GenderEnum, UserModel, UserGroupEnum
 
 
 def validate_name(name: str):
@@ -43,3 +43,47 @@ def validate_birth_date(birth_date: date) -> None:
     age = (date.today() - birth_date).days // 365
     if age < 18:
         raise ValueError('You must be at least 18 years old to register.')
+
+
+def validate_user(user: UserModel, user_id: int, current_user_id: int) -> None:
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired.",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or not active.",
+        )
+
+    # Проверка прав (Admin или владелец)
+    # Используем безопасную проверку группы
+    user_group_name = user.group.name if user.group else ""
+    if user_id != current_user_id and user_group_name != UserGroupEnum.ADMIN.value:
+        raise HTTPException(
+            status_code=403, detail="You don't have permission to edit this profile."
+        )
+
+
+def validate_full_name_user(first_name, last_name):
+    try:
+        validate_name(first_name)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{first_name} contains non-english letters"
+        )
+
+    try:
+        validate_name(last_name)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{last_name} contains non-english letters"
+        )
+
+
+def validate_profile_data():
+    ...

@@ -3,7 +3,8 @@ import os
 from fastapi import Depends, Request, HTTPException, status
 
 from src.config.settings import TestingSettings, Settings, BaseAppSettings
-from src.notifications import EmailSenderInterface, EmailSender
+from src.notifications.interfaces import EmailSenderInterface
+from src.notifications.emails import EmailSender
 from src.security.interfaces import JWTAuthManagerInterface
 from src.security.token_manager import JWTAuthManager
 from src.storages import S3StorageInterface, S3StorageClient
@@ -35,7 +36,7 @@ def get_jwt_auth_manager(settings: BaseAppSettings = Depends(get_settings)) -> J
     as well as the JWT signing algorithm specified in the settings.
 
     Args:
-        settings (BaseAppSettings, optional): The application settings instance.
+        settings BaseAppSettings, optional: The application settings instance.
         Defaults to the output of get_settings().
 
     Returns:
@@ -60,7 +61,7 @@ def get_accounts_email_notificator(
     to send various email notifications (e.g., activation, password reset) as required.
 
     Args:
-        settings (BaseAppSettings, optional): The application settings,
+        settings BaseAppSettings, optional: The application settings,
         provided via dependency injection from `get_settings`.
 
     Returns:
@@ -91,7 +92,7 @@ def get_s3_storage_client(
     storage service for file uploads and URL generation.
 
     Args:
-        settings (BaseAppSettings, optional): The application settings,
+        settings BaseAppSettings, optional: The application settings,
         provided via dependency injection from `get_settings`.
 
     Returns:

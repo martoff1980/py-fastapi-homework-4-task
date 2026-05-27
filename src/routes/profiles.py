@@ -13,17 +13,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from sqlalchemy import select
 
+from src.schemas.profiles import ProfileCreateForm
 from src.database import get_db, UserModel, UserProfileModel, UserGroupEnum
 from src.storages import S3StorageInterface
+from src.storages.s3 import AvatarService
 from src.config import get_s3_storage_client
-from src.config.dependencies import get_current_user_id
+from src.config.dependencies import get_current_user_id, get_current_active_user, check_profile_edit_permission
 from src.exceptions.storage import S3FileUploadError
 from src.validation.profile import (
     GenderEnum,
     validate_name,
     validate_image,
     validate_gender,
-    validate_birth_date
+    validate_birth_date,
+    validate_user,
+    validate_full_name_user,
 )
 
 
@@ -43,6 +47,7 @@ async def create_profile(
     db: AsyncSession = Depends(get_db),
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
 ):
+    # функция по пользователю
     # 1. Валидация существования пользователя
     # Обычно это проверяется в зависимости get_current_user_id,
     # но если ваш менеджер токенов этого не делает, добавим проверку здесь:
@@ -54,26 +59,31 @@ async def create_profile(
     result = await db.execute(stmt)
     user = result.scalars().first()
 
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired.",
-        )
+    # --------------------------- #
+    # if not user:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_401_UNAUTHORIZED,
+    #         detail="Token has expired.",
+    #     )
 
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or not active.",
-        )
+    # if not user.is_active:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_401_UNAUTHORIZED,
+    #         detail="User not found or not active.",
+    #     )
 
     # Проверка прав (Admin или владелец)
     # Используем безопасную проверку группы
-    user_group_name = user.group.name if user.group else ""
-    if user_id != current_user_id and user_group_name != UserGroupEnum.ADMIN.value:
-        raise HTTPException(
-            status_code=403, detail="You don't have permission to edit this profile."
-        )
+    # user_group_name = user.group.name if user.group else ""
+    # if user_id != current_user_id and user_group_name != UserGroupEnum.ADMIN.value:
+    #     raise HTTPException(
+    #         status_code=403, detail="You don't have permission to edit this profile."
+    #     )
+    # --------------------------- #
+    validate_user(user, user_id, current_user_id)
 
+    # функция по валидации формы
+    # --------------------------- #
     # Проверка на существующий профиль
     # Предотвращает IntegrityError UNIQUE constraint failed
     existing_profile = await db.execute(
@@ -86,21 +96,22 @@ async def create_profile(
         )
 
     # 1.1 Валидация имени и фамилии
-    try:
-        validate_name(first_name)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"{first_name} contains non-english letters"
-        )
+    # try:
+    #     validate_name(first_name)
+    # except ValueError:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+    #         detail=f"{first_name} contains non-english letters"
+    #     )
 
-    try:
-        validate_name(last_name)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"{last_name} contains non-english letters"
-        )
+    # try:
+    #     validate_name(last_name)
+    # except ValueError:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+    #         detail=f"{last_name} contains non-english letters"
+    #     )
+    validate_full_name_user(first_name, last_name)
 
     # 2. Валидация поля info
     if not info or info.strip() == "":
@@ -142,7 +153,10 @@ async def create_profile(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
+    # --------------------------- #
 
+    # функция по загрузки аватара
+    # --------------------------- #
     # 5. Обработка аватара
     try:
         validate_image(avatar)
@@ -165,6 +179,7 @@ async def create_profile(
         )
 
     avatar_url = await s3_client.get_file_url(file_path)
+    # --------------------------- #
 
     # 6. Создание профиля
     new_profile = UserProfileModel(
