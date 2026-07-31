@@ -1,7 +1,8 @@
 from exceptions.security import (
     BaseSecurityError,
     InvalidTokenError,
-    TokenExpiredError
+    TokenExpiredError,
+    token_expired_exception_handler
 )
 from exceptions.email import BaseEmailError
 from exceptions.storage import (

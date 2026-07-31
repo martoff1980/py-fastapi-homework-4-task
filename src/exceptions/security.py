@@ -1,3 +1,7 @@
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
+
+app = FastAPI()
 class BaseSecurityError(Exception):
     """Base class for all security-related errors."""
 
@@ -19,3 +23,10 @@ class InvalidTokenError(BaseSecurityError):
 
     def __init__(self, message="Invalid token."):
         super().__init__(message)
+
+@app.exception_handler(TokenExpiredError)
+async def token_expired_exception_handler(request: Request, exc: TokenExpiredError):
+    return JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        content={"detail": "Token has expired."},
+    )
