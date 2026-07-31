@@ -10,4 +10,18 @@ from validation import (
     validate_birth_date
 )
 
-# Write your code here
+class UserProfileResponse(BaseModel):
+    model_config = {
+        "from_attributes": True
+    }
+
+    first_name: str
+    last_name: str
+    gender: str
+    date_of_birth: date
+    avatar: str # URL из S3
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def to_lowercase(cls, v):
+        return v.lower() # Тесты ожидают "john" вместо "John"
