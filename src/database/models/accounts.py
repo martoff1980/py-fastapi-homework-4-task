@@ -36,6 +36,7 @@ class UserGroupEnum(str, enum.Enum):
 class GenderEnum(str, enum.Enum):
     MAN = "man"
     WOMAN = "woman"
+    OTHER = "other"
 
 
 class UserGroupModel(Base):

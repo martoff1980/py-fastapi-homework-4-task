@@ -5,6 +5,7 @@ from database.models.accounts import (
     UserModel,
     UserGroupModel,
     UserGroupEnum,
+    GenderEnum,
     ActivationTokenModel,
     PasswordResetTokenModel,
     RefreshTokenModel,
