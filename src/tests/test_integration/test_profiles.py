@@ -6,7 +6,7 @@ from io import BytesIO
 from PIL import Image
 from sqlalchemy import select, func
 
-from database import UserModel, UserProfileModel
+from database import UserModel, UserProfileModel, GenderEnum
 from exceptions import S3FileUploadError
 
 
@@ -142,7 +142,7 @@ async def test_create_user_profile_expired_token(client, jwt_manager):
     }
 
     response = await client.post(profile_url, headers=headers, files=files)
-
+    
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
     assert response.json()["detail"] == "Token has expired.", \
         f"Unexpected error message: {response.json()['detail']}"
@@ -200,7 +200,7 @@ async def test_admin_creates_user_profile(
         "avatar": ("avatar.jpg", img_bytes, "image/jpeg"),
     }
 
-    response = await client.post(profile_url, headers=headers, files=files)
+    response = await client.post(profile_url, headers=headers, files=files)    
     assert response.status_code == 201, f"Expected 201, got {response.status_code}"
     profile_data = response.json()
 
@@ -573,21 +573,26 @@ async def test_profile_creation_invalid_gender(db_session, client, jwt_manager):
 
     access_token = jwt_manager.create_access_token({"user_id": user.id})
 
+    img = Image.new("RGB", (1000, 1000), color="blue")
+    img_bytes = BytesIO()
+    img.save(img_bytes, format="JPEG")
+    img_bytes.seek(0)
+
     profile_url = "/api/v1/profiles/users/1/profile/"
     headers = {"Authorization": f"Bearer {access_token}"}
     files = {
         "first_name": (None, "John"),
         "last_name": (None, "Doe"),
-        "gender": (None, "other"),
+        "gender": (None, "fake-gender"),
         "date_of_birth": (None, "1990-01-01"),
         "info": (None, "This is a test profile."),
-        "avatar": ("avatar.jpg", BytesIO(b"fake_image"), "image/jpeg"),
+        "avatar": ("avatar.jpg", img_bytes, "image/jpeg"),
     }
 
     response = await client.post(profile_url, headers=headers, files=files)
-
+    
     assert response.status_code == 422, f"Expected 422, got {response.status_code}"
-    assert "Gender must be one of" in str(response.json()), f"Unexpected error message: {response.json()}"
+    assert f"Gender must be one of: {', '.join(g.value for g in GenderEnum)}", f"Unexpected error message: {response.json()}"
 
 
 @pytest.mark.asyncio
