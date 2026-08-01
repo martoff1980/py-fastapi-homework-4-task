@@ -19,6 +19,7 @@ def validate_name(name: str):
 def validate_image(avatar: UploadFile) -> None:
     supported_image_formats = ["JPG", "JPEG", "PNG"]
     max_file_size = 1 * 1024 * 1024
+    
 
     contents = avatar.file.read()
     if len(contents) > max_file_size:
