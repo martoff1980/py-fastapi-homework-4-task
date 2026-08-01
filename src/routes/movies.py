@@ -4,7 +4,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from database import get_db, MovieModel
+from database.factory import get_db
+from database import  MovieModel
 from database import (
     CountryModel,
     GenreModel,

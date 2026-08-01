@@ -1,15 +1,16 @@
 from datetime import datetime, timezone
 from typing import cast
 
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks
 from sqlalchemy import select, delete
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from config import get_jwt_auth_manager, get_settings, BaseAppSettings, get_accounts_email_notificator
+
+from database.factory import get_db
 from database import (
-    get_db,
     UserModel,
     UserGroupModel,
     UserGroupEnum,
@@ -32,6 +33,9 @@ from schemas import (
     TokenRefreshResponseSchema
 )
 from security.interfaces import JWTAuthManagerInterface
+
+
+settings = get_settings()
 
 router = APIRouter()
 
@@ -67,6 +71,8 @@ router = APIRouter()
 )
 async def register_user(
         user_data: UserRegistrationRequestSchema,
+        background_tasks: BackgroundTasks,
+        email_notificator: EmailSenderInterface = Depends(get_accounts_email_notificator),
         db: AsyncSession = Depends(get_db),
 ) -> UserRegistrationResponseSchema:
     """
@@ -88,6 +94,7 @@ async def register_user(
             - 409 Conflict if a user with the same email exists.
             - 500 Internal Server Error if an error occurs during user creation.
     """
+    # 1. Проверка существующего пользователя
     stmt = select(UserModel).where(UserModel.email == user_data.email)
     result = await db.execute(stmt)
     existing_user = result.scalars().first()
@@ -97,6 +104,7 @@ async def register_user(
             detail=f"A user with this email {user_data.email} already exists."
         )
 
+    # 2. Получение дефолтной группы
     stmt = select(UserGroupModel).where(UserGroupModel.name == UserGroupEnum.USER)
     result = await db.execute(stmt)
     user_group = result.scalars().first()
@@ -115,11 +123,30 @@ async def register_user(
         db.add(new_user)
         await db.flush()
 
+        # 3. Создание токена активации
         activation_token = ActivationTokenModel(user_id=new_user.id)
         db.add(activation_token)
-
         await db.commit()
+        
+        # КРИТИЧНО: Обновляем объекты, чтобы они стали доступны для чтения
+        # и подтянулись все дефолтные поля из БД (включая сгенерированный token)
+        await db.refresh(activation_token)
         await db.refresh(new_user)
+    
+        # 4. ДОБАВЛЕНИЕ ЗАДАЧИ НА ОТПРАВКУ EMAIL (BackgroundTasks)
+        # Формируем ссылку активации
+        base_url = settings.BASE_URL.rstrip("/")
+
+        activation_link = (
+            f"{base_url}/api/v1/accounts/activate?token={activation_token.token}"
+        )
+    
+        background_tasks.add_task(
+            email_notificator.send_activation_email,
+            email=new_user.email,
+            activation_link=activation_link,
+        )
+    
     except SQLAlchemyError as e:
         await db.rollback()
         raise HTTPException(

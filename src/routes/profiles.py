@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy import select
 
-from database import get_db
+from database.factory import get_db
 from database.models.accounts import UserModel, UserProfileModel, GenderEnum, UserGroupEnum
 from config.dependencies import get_current_user_id, get_current_active_user
 
@@ -95,6 +95,7 @@ async def create_profile(
     
     file_content = await avatar.read()
     file_path = f"avatars/{user_id}_{avatar.filename}"
+    
     try:
         await s3_client.upload_file(file_path, file_content)
     except S3FileUploadError:
