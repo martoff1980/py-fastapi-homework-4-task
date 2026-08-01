@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 
-from database import get_db
+from database.factory import get_db
 from database.models.accounts import UserModel
 
 from config.settings import TestingSettings, Settings, BaseAppSettings, get_settings
