@@ -44,7 +44,7 @@ async def test_create_user_profile(e2e_client, e2e_db_session, settings, s3_clie
 
     profile_url = f"/api/v1/profiles/users/{user.id}/profile/"
     headers = {"Authorization": f"Bearer {access_token}"}
-
+    
     files = {
         "first_name": (None, "John"),
         "last_name": (None, "Doe"),
