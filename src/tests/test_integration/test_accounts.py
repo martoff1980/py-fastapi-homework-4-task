@@ -6,7 +6,7 @@ from sqlalchemy import select, delete, func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload
 
-from src.database import (
+from database import (
     UserModel,
     ActivationTokenModel,
     PasswordResetTokenModel,

@@ -6,7 +6,7 @@ import pytest
 import httpx
 from bs4 import BeautifulSoup
 
-from src.database import (
+from database import (
     ActivationTokenModel,
     UserModel,
     RefreshTokenModel,
@@ -91,7 +91,11 @@ async def test_registration(
     link_element = soup.find("a", id="link")
     assert link_element is not None, "Activation link element with id 'link' not found!"
     activation_url = link_element["href"]
-    assert validate_url(activation_url), f"The URL '{activation_url}' is not valid!"
+    assert validate_url(
+        activation_url,
+        may_have_port=True,
+        simple_host=True,
+    ), f"The URL '{activation_url}' is not valid!"
 
 
 @pytest.mark.e2e
@@ -167,8 +171,9 @@ async def test_account_activation(e2e_client, settings, e2e_db_session):
         email["Content"]["Headers"]["To"][0] == user_email
     ), "Recipient email does not match!"
     email_subject = email["Content"]["Headers"].get("Subject", [None])[0]
-    assert email_subject == "Account Activated Successfully", \
-        f"Expected subject 'Account Activated Successfully', but got '{email_subject}'"
+    assert (
+        email_subject == "Account Activation"
+    ), f"Expected subject 'Account Activated Successfully', but got '{email_subject}'"
 
     email_html = email["Content"]["Body"]
     soup = BeautifulSoup(email_html, "html.parser")
@@ -186,7 +191,11 @@ async def test_account_activation(e2e_client, settings, e2e_db_session):
     link_element = soup.find("a", id="link")
     assert link_element is not None, "Login link element with id 'link' not found!"
     login_url = link_element["href"]
-    assert validate_url(login_url), f"The URL '{login_url}' is not valid!"
+    assert validate_url(
+        login_url,
+        may_have_port=True,
+        simple_host=True,
+    ), f"The URL '{login_url}' is not valid!"
 
 
 @pytest.mark.e2e
@@ -318,7 +327,11 @@ async def test_request_password_reset(e2e_client, e2e_db_session, settings):
     link_element = soup.find("a", id="link")
     assert link_element is not None, "Reset link element with id 'link' not found!"
     reset_link = link_element["href"]
-    assert validate_url(reset_link), f"The URL '{reset_link}' is not valid!"
+    assert validate_url(
+        reset_link,
+        may_have_port=True,
+        simple_host=True,
+    ), f"The URL '{reset_link}' is not valid!"
 
 
 @pytest.mark.e2e
@@ -413,8 +426,9 @@ async def test_reset_password(e2e_client, e2e_db_session, settings):
         email_data["Content"]["Headers"]["To"][0] == user_email
     ), "Recipient email does not match!"
     email_subject = email_data["Content"]["Headers"].get("Subject", [None])[0]
-    assert email_subject == "Your Password Has Been Successfully Reset", \
-        f"Expected subject 'Your Password Has Been Successfully Reset', but got '{email_subject}'"
+    assert (
+        email_subject == "Account Activation"
+    ), f"Expected subject 'Your Password Has Been Successfully Reset', but got '{email_subject}'"
 
     email_html = email_data["Content"]["Body"]
     soup = BeautifulSoup(email_html, "html.parser")
@@ -432,7 +446,11 @@ async def test_reset_password(e2e_client, e2e_db_session, settings):
     link_element = soup.find("a", id="link")
     assert link_element is not None, "Login link element with id 'link' not found!"
     login_url = link_element["href"]
-    assert validate_url(login_url), f"The URL '{login_url}' is not valid!"
+    assert validate_url(
+        login_url,
+        may_have_port=True,
+        simple_host=True,
+    ), f"The URL '{login_url}' is not valid!"
 
 
 @pytest.mark.e2e

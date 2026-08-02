@@ -1,12 +1,11 @@
-# @format
-
 services:
   web:
     build:
       context: .
       dockerfile: ./docker/tests/Dockerfile
     container_name: backend_theater_test
-    command: ['pytest', '-c', '/usr/src/config/pytest.ini', '-m', 'e2e', '--maxfail=5', '--disable-warnings', '-v', '--tb=short']
+    command: [ "pytest", "-c", "/usr/src/config/pytest.ini",
+               "-m", "e2e", "--maxfail=5", "--disable-warnings", "-v", "--tb=short"]
     environment:
       - PYTHONPATH=/usr/src/fastapi
       - ENVIRONMENT=testing
@@ -35,18 +34,18 @@ services:
     image: mailhog/mailhog
     container_name: mailhog_theater_test
     ports:
-      - '8025:8025'
-      - '1025:1025'
+      - "8025:8025"
+      - "1025:1025"
     networks:
       - theater_network_test
 
   minio:
     image: minio/minio:latest
     container_name: minio-theater-test
-    command: server /data --console-address ":9001"
+    command: server --console-address ":9001" /data
     ports:
-      - '9000:9000'
-      - '9001:9001'
+      - "9000:9000"
+      - "9001:9001"
     environment:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=some_password
@@ -56,7 +55,7 @@ services:
     volumes:
       - minio_data_test:/data
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -68,7 +67,7 @@ services:
       context: .
       dockerfile: docker/minio_mc/Dockerfile
     container_name: minio_mc_theater_test
-    command: ['/bin/sh', '-c', '/commands/setup_minio.sh']
+    command: [ "/bin/sh", "-c", "/commands/setup_minio.sh" ]
     depends_on:
       minio:
         condition: service_healthy

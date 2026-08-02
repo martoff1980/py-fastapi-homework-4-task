@@ -7,9 +7,15 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from config import get_jwt_auth_manager, get_settings, BaseAppSettings, get_accounts_email_notificator
+from config import (
+    get_jwt_auth_manager,
+    get_settings,
+    BaseAppSettings,
+    get_accounts_email_notificator,
+)
+
+from database.factory import get_db
 from database import (
-    get_db,
     UserModel,
     UserGroupModel,
     UserGroupEnum,
@@ -17,9 +23,9 @@ from database import (
     PasswordResetTokenModel,
     RefreshTokenModel,
 )
-from src.exceptions import BaseSecurityError
-from src.notifications import EmailSenderInterface
-from src.schemas import (
+from exceptions import BaseSecurityError
+from notifications import EmailSenderInterface
+from schemas import (
     UserRegistrationRequestSchema,
     UserRegistrationResponseSchema,
     MessageResponseSchema,
@@ -32,6 +38,8 @@ from src.schemas import (
     TokenRefreshResponseSchema,
 )
 from security.interfaces import JWTAuthManagerInterface
+
+settings = get_settings()
 
 router = APIRouter()
 
@@ -64,8 +72,10 @@ router = APIRouter()
     },
 )
 async def register_user(
-        user_data: UserRegistrationRequestSchema,
-        db: AsyncSession = Depends(get_db),
+    user_data: UserRegistrationRequestSchema,
+    background_tasks: BackgroundTasks,
+    email_notificator: EmailSenderInterface = Depends(get_accounts_email_notificator),
+    db: AsyncSession = Depends(get_db),
 ) -> UserRegistrationResponseSchema:
     """
     Endpoint for user registration.
@@ -124,6 +134,21 @@ async def register_user(
         # и подтянулись все дефолтные поля из БД (включая сгенерированный token)
         await db.refresh(activation_token)
         await db.refresh(new_user)
+
+        # 4. ДОБАВЛЕНИЕ ЗАДАЧИ НА ОТПРАВКУ EMAIL (BackgroundTasks)
+        # Формируем ссылку активации
+        base_url = settings.BASE_URL.rstrip("/")
+
+        activation_link = (
+            f"{base_url}/api/v1/accounts/activate?token={activation_token.token}"
+        )
+
+        background_tasks.add_task(
+            email_notificator.send_activation_email,
+            email=new_user.email,
+            activation_link=activation_link,
+        )
+
     except SQLAlchemyError as e:
         await db.rollback()
         raise HTTPException(
@@ -131,9 +156,7 @@ async def register_user(
             detail="An error occurred during user creation.",
         ) from e
     else:
-        return UserRegistrationResponseSchema.model_validate(
-            {"id": new_user.id, "email": new_user.email}
-        )
+        return UserRegistrationResponseSchema.model_validate(new_user)
 
 
 @router.post(
@@ -238,8 +261,8 @@ async def activate_account(
     status_code=status.HTTP_200_OK,
 )
 async def request_password_reset_token(
-        data: PasswordResetRequestSchema,
-        db: AsyncSession = Depends(get_db),
+    data: PasswordResetRequestSchema,
+    db: AsyncSession = Depends(get_db),
 ) -> MessageResponseSchema:
     """
     Endpoint to request a password reset token.
@@ -254,7 +277,6 @@ async def request_password_reset_token(
     Returns:
         MessageResponseSchema: A success message indicating that instructions will be sent.
     """
-    # 1. Ищем пользователя
     stmt = select(UserModel).filter_by(email=data.email)
     result = await db.execute(stmt)
     user = result.scalars().first()
@@ -270,21 +292,9 @@ async def request_password_reset_token(
         )
     )
 
-    # 2. СОЗДАНИЕ ТОКЕНА
     reset_token = PasswordResetTokenModel(user_id=cast(int, user.id))
     db.add(reset_token)
     await db.commit()
-    await db.refresh(reset_token)
-
-    base_url = settings.BASE_URL.rstrip("/")
-    reset_link = f"{base_url}/reset-password?token={reset_token.token}"
-
-    # 3. Отправка через BackgroundTasks
-    background_tasks.add_task(
-        email_notificator.send_password_reset_email,
-        email=user.email,
-        reset_link=reset_link,
-    )
 
     return MessageResponseSchema(
         message="If you are registered, you will receive an email with instructions."

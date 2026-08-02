@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from tqdm import tqdm
 
-from config import get_settings
+from config.settings import get_settings
 from database import (
     CountryModel,
     GenreModel,
@@ -21,7 +21,7 @@ from database import (
     UserGroupModel,
     UserGroupEnum,
 )
-from database import get_db_contextmanager
+from database.factory import get_db_contextmanager
 
 CHUNK_SIZE = 1000
 

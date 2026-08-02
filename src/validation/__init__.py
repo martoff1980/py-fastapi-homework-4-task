@@ -1,4 +1,4 @@
-from src.validation.profile import (
+from validation.profile import (
     validate_name,
     validate_image,
     validate_gender,
