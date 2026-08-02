@@ -3,17 +3,14 @@ from datetime import date
 from io import BytesIO
 
 from PIL import Image
-from fastapi import UploadFile, status, HTTPException
+from fastapi import UploadFile
 
-from database.models.accounts import GenderEnum
+from src.database.models.accounts import GenderEnum, UserModel, UserGroupEnum
 
 
 def validate_name(name: str):
-    if re.search(r"^[A-Za-z]*$", name) is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"{name} contains non-english letters",
-        )
+    if re.search(r'^[A-Za-z]*$', name) is None:
+        raise ValueError(f'{name} contains non-english letters')
 
 
 def validate_image(avatar: UploadFile) -> None:
@@ -61,7 +58,4 @@ def validate_birth_date(birth_date: date) -> None:
 
     age = (date.today() - birth_date).days // 365
     if age < 18:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="You must be at least 18 years old to register.",
-        )
+        raise ValueError('You must be at least 18 years old to register.')

@@ -6,7 +6,7 @@ from io import BytesIO
 from PIL import Image
 from sqlalchemy import select, func
 
-from database import UserModel, UserProfileModel, GenderEnum
+from database import UserModel, UserProfileModel
 from exceptions import S3FileUploadError
 
 

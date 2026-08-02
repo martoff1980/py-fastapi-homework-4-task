@@ -5,7 +5,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
+<<<<<<< HEAD
 from config.settings import get_settings
+=======
+from src.config import get_settings
+>>>>>>> f498dc16c531b82797433cec4c9061731f8d8cf8
 
 settings = get_settings()
 

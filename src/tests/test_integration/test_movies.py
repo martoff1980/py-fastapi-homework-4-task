@@ -5,7 +5,12 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import joinedload
 
 from database import MovieModel
-from database import GenreModel, ActorModel, LanguageModel, CountryModel
+from database import (
+    GenreModel,
+    ActorModel,
+    LanguageModel,
+    CountryModel
+)
 
 
 @pytest.mark.asyncio

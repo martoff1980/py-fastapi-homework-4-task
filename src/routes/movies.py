@@ -4,10 +4,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from database.factory import get_db
-from database import MovieModel
-from database import CountryModel, GenreModel, ActorModel, LanguageModel
-from schemas import MovieListResponseSchema, MovieListItemSchema, MovieDetailSchema
+from database import get_db, MovieModel
+from database import (
+    CountryModel,
+    GenreModel,
+    ActorModel,
+    LanguageModel
+)
+from schemas import (
+    MovieListResponseSchema,
+    MovieListItemSchema,
+    MovieDetailSchema
+)
 from schemas.movies import MovieCreateSchema, MovieUpdateSchema
 
 router = APIRouter()

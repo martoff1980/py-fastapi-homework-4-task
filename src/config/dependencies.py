@@ -5,14 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 
-from database.factory import get_db
-from database.models.accounts import UserModel
+from fastapi import Depends
 
-from config.settings import TestingSettings, Settings, BaseAppSettings, get_settings
+from config.settings import TestingSettings, Settings, BaseAppSettings
 from notifications import EmailSenderInterface, EmailSender
 from security.interfaces import JWTAuthManagerInterface
 from security.token_manager import JWTAuthManager
-from exceptions.security import TokenExpiredError, InvalidTokenError, BaseSecurityError
 from storages import S3StorageInterface, S3StorageClient
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -45,7 +43,7 @@ def get_jwt_auth_manager(
     as well as the JWT signing algorithm specified in the settings.
 
     Args:
-        settings (BaseAppSettings, optional): The application settings instance.
+        settings BaseAppSettings, optional: The application settings instance.
         Defaults to the output of get_settings().
 
     Returns:
@@ -70,7 +68,7 @@ def get_accounts_email_notificator(
     to send various email notifications (e.g., activation, password reset) as required.
 
     Args:
-        settings (BaseAppSettings, optional): The application settings,
+        settings BaseAppSettings, optional: The application settings,
         provided via dependency injection from `get_settings`.
 
     Returns:
@@ -101,7 +99,7 @@ def get_s3_storage_client(
     storage service for file uploads and URL generation.
 
     Args:
-        settings (BaseAppSettings, optional): The application settings,
+        settings BaseAppSettings, optional: The application settings,
         provided via dependency injection from `get_settings`.
 
     Returns:
@@ -113,85 +111,3 @@ def get_s3_storage_client(
         secret_key=settings.S3_STORAGE_SECRET_KEY,
         bucket_name=settings.S3_BUCKET_NAME,
     )
-
-
-async def get_current_user_id(
-    request: Request,
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
-) -> int:
-    auth_header = request.headers.get("Authorization")
-
-    # 1. Проверка наличия заголовка
-    if not auth_header:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authorization header is missing",
-        )
-
-    # 2. Проверка формата Bearer <token>
-    parts = auth_header.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Authorization header format. Expected 'Bearer <token>'",
-        )
-
-    token = parts[1]
-
-    # 3. Валидация токена через менеджер
-    payload = jwt_manager.decode_access_token(token)
-    if not payload or "user_id" not in payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
-        )
-
-    return payload["user_id"]
-
-
-async def get_current_active_user(
-    token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db),
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
-) -> UserModel:
-    try:
-        payload = jwt_manager.decode_access_token(token)
-        user_id = payload.get("user_id")
-
-        if user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload.",
-            )
-
-    except TokenExpiredError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except (InvalidTokenError, BaseSecurityError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Далее получение пользователя из БД
-    stmt = select(UserModel).where(UserModel.id == user_id)
-    result = await db.execute(stmt)
-    user = result.scalars().first()
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found.",
-        )
-
-    # КРИТИЧЕСКАЯ ПРОВЕРКА ДЛЯ ЭТОГО ТЕСТА:
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or not active.",
-        )
-
-    return user

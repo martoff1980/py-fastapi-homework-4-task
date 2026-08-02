@@ -31,14 +31,15 @@ RUN poetry config virtualenvs.create false
 WORKDIR /usr/src/poetry
 
 # Install dependencies with Poetry
+# poetry install --no-root --only main
 RUN poetry lock
-RUN poetry install --no-root --only main
+RUN poetry install --no-interaction --no-ansi
 
 # Selecting a working directory
 WORKDIR /usr/src/fastapi
 
 # Copy the source code
-COPY ./src .
+COPY . .
 
 # Copy commands
 COPY ./commands /commands
@@ -48,3 +49,5 @@ RUN dos2unix /commands/*.sh
 
 # Add execute bit to commands files
 RUN chmod +x /commands/*.sh
+
+ENV PYTHONPATH=/usr/src/
