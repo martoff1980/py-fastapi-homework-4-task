@@ -10,14 +10,16 @@ from database import (
     ActivationTokenModel,
     UserModel,
     RefreshTokenModel,
-    PasswordResetTokenModel
+    PasswordResetTokenModel,
 )
 
 
 @pytest.mark.e2e
 @pytest.mark.order(1)
 @pytest.mark.asyncio
-async def test_registration(e2e_client, reset_db_once_for_e2e, settings, seed_user_groups, e2e_db_session):
+async def test_registration(
+    e2e_client, reset_db_once_for_e2e, settings, seed_user_groups, e2e_db_session
+):
     """
     End-to-end test for user registration.
 
@@ -33,40 +35,49 @@ async def test_registration(e2e_client, reset_db_once_for_e2e, settings, seed_us
     - Verify that an email was sent to the expected recipient.
     - Ensure the email body contains the activation link.
     """
-    user_data = {
-        "email": "test@mate.com",
-        "password": "StrongPassword123!"
-    }
-    
-    mailhog_url = f"http://{settings.EMAIL_HOST}:{settings.MAILHOG_API_PORT}/api/v2/messages"
+    user_data = {"email": "test@mate.com", "password": "StrongPassword123!"}
+
+    mailhog_url = (
+        f"http://{settings.EMAIL_HOST}:{settings.MAILHOG_API_PORT}/api/v2/messages"
+    )
     response = await e2e_client.post("/api/v1/accounts/register/", json=user_data)
-    
+
     assert response.status_code == 201, f"Expected 201, got {response.status_code}"
     response_data = response.json()
     assert response_data["email"] == user_data["email"]
 
-    mailhog_url = f"http://{settings.EMAIL_HOST}:{settings.MAILHOG_API_PORT}/api/v2/messages"
-    
+    mailhog_url = (
+        f"http://{settings.EMAIL_HOST}:{settings.MAILHOG_API_PORT}/api/v2/messages"
+    )
+
     async with httpx.AsyncClient() as client:
         mailhog_response = await client.get(
             mailhog_url,
-            auth=(settings.EMAIL_HOST_USER,
-            settings.EMAIL_HOST_PASSWORD,)
+            auth=(
+                settings.EMAIL_HOST_USER,
+                settings.EMAIL_HOST_PASSWORD,
+            ),
         )
-        
+
     await e2e_db_session.commit()
     e2e_db_session.expire_all()
-    
-    assert mailhog_response.status_code == 200, f"MailHog API returned {mailhog_response.status_code}"
+
+    assert (
+        mailhog_response.status_code == 200
+    ), f"MailHog API returned {mailhog_response.status_code}"
     messages = mailhog_response.json()["items"]
     assert len(messages) > 0, "No emails were sent!"
 
     email = messages[0]
-    assert email["Content"]["Headers"]["To"][0] == user_data["email"], "Email recipient does not match."
+    assert (
+        email["Content"]["Headers"]["To"][0] == user_data["email"]
+    ), "Email recipient does not match."
 
     email_html = email["Content"]["Body"]
     email_subject = email["Content"]["Headers"].get("Subject", [None])[0]
-    assert email_subject == "Account Activation", f"Expected subject 'Account Activation', but got '{email_subject}'"
+    assert (
+        email_subject == "Account Activation"
+    ), f"Expected subject 'Account Activation', but got '{email_subject}'"
 
     soup = BeautifulSoup(email_html, "html.parser")
     email_element = soup.find("strong", id="email")
@@ -79,8 +90,12 @@ async def test_registration(e2e_client, reset_db_once_for_e2e, settings, seed_us
 
     link_element = soup.find("a", id="link")
     assert link_element is not None, "Activation link element with id 'link' not found!"
-    activation_url = link_element["href"]  
-    assert validate_url(activation_url,may_have_port=True,simple_host=True,), f"The URL '{activation_url}' is not valid!"
+    activation_url = link_element["href"]
+    assert validate_url(
+        activation_url,
+        may_have_port=True,
+        simple_host=True,
+    ), f"The URL '{activation_url}' is not valid!"
 
 
 @pytest.mark.e2e
@@ -112,14 +127,22 @@ async def test_account_activation(e2e_client, settings, e2e_db_session):
     )
     result = await e2e_db_session.execute(stmt)
     activation_token_record = result.scalars().first()
-    assert activation_token_record, f"Activation token for email {user_email} not found!"
+    assert (
+        activation_token_record
+    ), f"Activation token for email {user_email} not found!"
     token_value = activation_token_record.token
 
     activation_url = "/api/v1/accounts/activate/"
-    response = await e2e_client.post(activation_url, json={"email": user_email, "token": token_value})
-    assert response.status_code == 200, f"Expected status code 200, got {response.status_code}"
+    response = await e2e_client.post(
+        activation_url, json={"email": user_email, "token": token_value}
+    )
+    assert (
+        response.status_code == 200
+    ), f"Expected status code 200, got {response.status_code}"
     response_data = response.json()
-    assert response_data["message"] == "User account activated successfully.", "Unexpected activation message!"
+    assert (
+        response_data["message"] == "User account activated successfully."
+    ), "Unexpected activation message!"
 
     await e2e_db_session.commit()
 
@@ -128,21 +151,29 @@ async def test_account_activation(e2e_client, settings, e2e_db_session):
     activated_user = result_user.scalars().first()
     assert activated_user.is_active, f"User {user_email} is not active!"
 
-    mailhog_url = f"http://{settings.EMAIL_HOST}:{settings.MAILHOG_API_PORT}/api/v2/messages"
+    mailhog_url = (
+        f"http://{settings.EMAIL_HOST}:{settings.MAILHOG_API_PORT}/api/v2/messages"
+    )
     async with httpx.AsyncClient() as client:
         mailhog_response = await client.get(
             mailhog_url,
-            auth=(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD,)
+            auth=(
+                settings.EMAIL_HOST_USER,
+                settings.EMAIL_HOST_PASSWORD,
+            ),
         )
     assert mailhog_response.status_code == 200, "Failed to fetch emails from MailHog!"
     messages = mailhog_response.json()["items"]
     assert len(messages) > 0, "No emails were sent!"
 
     email = messages[0]
-    assert email["Content"]["Headers"]["To"][0] == user_email, "Recipient email does not match!"
+    assert (
+        email["Content"]["Headers"]["To"][0] == user_email
+    ), "Recipient email does not match!"
     email_subject = email["Content"]["Headers"].get("Subject", [None])[0]
-    assert email_subject == "Account Activation", \
-        f"Expected subject 'Account Activated Successfully', but got '{email_subject}'"
+    assert (
+        email_subject == "Account Activation"
+    ), f"Expected subject 'Account Activated Successfully', but got '{email_subject}'"
 
     email_html = email["Content"]["Body"]
     soup = BeautifulSoup(email_html, "html.parser")
@@ -153,12 +184,18 @@ async def test_account_activation(e2e_client, settings, e2e_db_session):
         validate_email(email_element.text)
     except EmailNotValidError as e:
         pytest.fail(f"The email link {email_element.text} is not valid: {e}")
-    assert email_element.text == user_email, "Email content does not match the user's email!"
+    assert (
+        email_element.text == user_email
+    ), "Email content does not match the user's email!"
 
     link_element = soup.find("a", id="link")
     assert link_element is not None, "Login link element with id 'link' not found!"
     login_url = link_element["href"]
-    assert validate_url(login_url,may_have_port=True,simple_host=True,), f"The URL '{login_url}' is not valid!"
+    assert validate_url(
+        login_url,
+        may_have_port=True,
+        simple_host=True,
+    ), f"The URL '{login_url}' is not valid!"
 
 
 @pytest.mark.e2e
@@ -178,15 +215,14 @@ async def test_user_login(e2e_client, e2e_db_session):
     - Assert the response status code and verify the returned access and refresh tokens.
     - Validate that the refresh token is stored in the database.
     """
-    user_data = {
-        "email": "test@mate.com",
-        "password": "StrongPassword123!"
-    }
+    user_data = {"email": "test@mate.com", "password": "StrongPassword123!"}
 
     login_url = "/api/v1/accounts/login/"
     response = await e2e_client.post(login_url, json=user_data)
 
-    assert response.status_code == 201, f"Expected status code 201, got {response.status_code}"
+    assert (
+        response.status_code == 201
+    ), f"Expected status code 201, got {response.status_code}"
     response_data = response.json()
 
     assert "access_token" in response_data, "Access token is missing in the response!"
@@ -203,7 +239,9 @@ async def test_user_login(e2e_client, e2e_db_session):
     stored_token = result.scalars().first()
 
     assert stored_token is not None, "Refresh token was not stored in the database!"
-    assert stored_token.user.email == user_data["email"], "Refresh token is linked to the wrong user!"
+    assert (
+        stored_token.user.email == user_data["email"]
+    ), "Refresh token is linked to the wrong user!"
 
 
 @pytest.mark.e2e
@@ -230,9 +268,14 @@ async def test_request_password_reset(e2e_client, e2e_db_session, settings):
     reset_url = "/api/v1/accounts/password-reset/request/"
 
     response = await e2e_client.post(reset_url, json={"email": user_email})
-    assert response.status_code == 200, f"Expected status code 200, got {response.status_code}"
+    assert (
+        response.status_code == 200
+    ), f"Expected status code 200, got {response.status_code}"
     response_data = response.json()
-    assert response_data["message"] == "If you are registered, you will receive an email with instructions."
+    assert (
+        response_data["message"]
+        == "If you are registered, you will receive an email with instructions."
+    )
 
     stmt = (
         select(PasswordResetTokenModel)
@@ -243,22 +286,30 @@ async def test_request_password_reset(e2e_client, e2e_db_session, settings):
     reset_token = result.scalars().first()
     assert reset_token, f"Password reset token for email {user_email} was not created!"
 
-    mailhog_url = f"http://{settings.EMAIL_HOST}:{settings.MAILHOG_API_PORT}/api/v2/messages"
+    mailhog_url = (
+        f"http://{settings.EMAIL_HOST}:{settings.MAILHOG_API_PORT}/api/v2/messages"
+    )
     async with httpx.AsyncClient() as client:
         mailhog_response = await client.get(
             mailhog_url,
-            auth=(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD,)
-            )
+            auth=(
+                settings.EMAIL_HOST_USER,
+                settings.EMAIL_HOST_PASSWORD,
+            ),
+        )
 
     assert mailhog_response.status_code == 200, "Failed to fetch emails from MailHog!"
     messages = mailhog_response.json()["items"]
     assert len(messages) > 0, "No emails were sent!"
 
     email_data = messages[0]
-    assert email_data["Content"]["Headers"]["To"][0] == user_email, "Recipient email does not match!"
+    assert (
+        email_data["Content"]["Headers"]["To"][0] == user_email
+    ), "Recipient email does not match!"
     email_subject = email_data["Content"]["Headers"].get("Subject", [None])[0]
-    assert email_subject == "Account Activation", \
-        f"Expected subject 'Password Reset Request', but got '{email_subject}'"
+    assert (
+        email_subject == "Account Activation"
+    ), f"Expected subject 'Password Reset Request', but got '{email_subject}'"
 
     email_html = email_data["Content"]["Body"]
     soup = BeautifulSoup(email_html, "html.parser")
@@ -269,12 +320,18 @@ async def test_request_password_reset(e2e_client, e2e_db_session, settings):
         validate_email(email_element.text)
     except EmailNotValidError as e:
         pytest.fail(f"The email link {email_element.text} is not valid: {e}")
-    assert email_element.text == user_email, "Email content does not match the user's email!"
+    assert (
+        email_element.text == user_email
+    ), "Email content does not match the user's email!"
 
     link_element = soup.find("a", id="link")
     assert link_element is not None, "Reset link element with id 'link' not found!"
     reset_link = link_element["href"]
-    assert validate_url(reset_link, may_have_port=True,simple_host=True,), f"The URL '{reset_link}' is not valid!"
+    assert validate_url(
+        reset_link,
+        may_have_port=True,
+        simple_host=True,
+    ), f"The URL '{reset_link}' is not valid!"
 
 
 @pytest.mark.e2e
@@ -311,23 +368,27 @@ async def test_reset_password(e2e_client, e2e_db_session, settings):
     result = await e2e_db_session.execute(stmt)
     reset_token_record = result.scalars().first()
 
-    assert reset_token_record, f"Password reset token for email {user_email} was not found!"
+    assert (
+        reset_token_record
+    ), f"Password reset token for email {user_email} was not found!"
     reset_token = reset_token_record.token
 
     reset_url = "/api/v1/accounts/reset-password/complete/"
-    response = await e2e_client.post(reset_url, json={
-        "email": user_email,
-        "password": new_password,
-        "token": reset_token
-    })
+    response = await e2e_client.post(
+        reset_url,
+        json={"email": user_email, "password": new_password, "token": reset_token},
+    )
 
-    assert response.status_code == 200, f"Expected status code 200, got {response.status_code}"
+    assert (
+        response.status_code == 200
+    ), f"Expected status code 200, got {response.status_code}"
     response_data = response.json()
-    assert response_data["message"] == "Password reset successfully.", "Unexpected password reset message!"
+    assert (
+        response_data["message"] == "Password reset successfully."
+    ), "Unexpected password reset message!"
 
-    stmt_deleted = (
-        select(PasswordResetTokenModel)
-        .where(PasswordResetTokenModel.user_id == reset_token_record.user_id)
+    stmt_deleted = select(PasswordResetTokenModel).where(
+        PasswordResetTokenModel.user_id == reset_token_record.user_id
     )
     deleted_result = await e2e_db_session.execute(stmt_deleted)
     deleted_token = deleted_result.scalars().first()
@@ -336,17 +397,24 @@ async def test_reset_password(e2e_client, e2e_db_session, settings):
     stmt_user = select(UserModel).where(UserModel.email == user_email)
     user_result = await e2e_db_session.execute(stmt_user)
     updated_user = user_result.scalars().first()
-    
+
     assert updated_user is not None, f"User with email {user_email} not found!"
-    assert updated_user.verify_password(new_password), "Password was not updated successfully!"
+    assert updated_user.verify_password(
+        new_password
+    ), "Password was not updated successfully!"
 
     await e2e_db_session.commit()
 
-    mailhog_url = f"http://{settings.EMAIL_HOST}:{settings.MAILHOG_API_PORT}/api/v2/messages"
+    mailhog_url = (
+        f"http://{settings.EMAIL_HOST}:{settings.MAILHOG_API_PORT}/api/v2/messages"
+    )
     async with httpx.AsyncClient() as client:
         mailhog_response = await client.get(
             mailhog_url,
-            auth=(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD,)
+            auth=(
+                settings.EMAIL_HOST_USER,
+                settings.EMAIL_HOST_PASSWORD,
+            ),
         )
 
     assert mailhog_response.status_code == 200, "Failed to fetch emails from MailHog!"
@@ -354,10 +422,13 @@ async def test_reset_password(e2e_client, e2e_db_session, settings):
     assert len(messages) > 0, "No emails were sent!"
 
     email_data = messages[0]
-    assert email_data["Content"]["Headers"]["To"][0] == user_email, "Recipient email does not match!"
+    assert (
+        email_data["Content"]["Headers"]["To"][0] == user_email
+    ), "Recipient email does not match!"
     email_subject = email_data["Content"]["Headers"].get("Subject", [None])[0]
-    assert email_subject == "Account Activation", \
-        f"Expected subject 'Your Password Has Been Successfully Reset', but got '{email_subject}'"
+    assert (
+        email_subject == "Account Activation"
+    ), f"Expected subject 'Your Password Has Been Successfully Reset', but got '{email_subject}'"
 
     email_html = email_data["Content"]["Body"]
     soup = BeautifulSoup(email_html, "html.parser")
@@ -368,12 +439,18 @@ async def test_reset_password(e2e_client, e2e_db_session, settings):
         validate_email(email_element.text)
     except EmailNotValidError as e:
         pytest.fail(f"The email link {email_element.text} is not valid: {e}")
-    assert email_element.text == user_email, "Email content does not match the user's email!"
+    assert (
+        email_element.text == user_email
+    ), "Email content does not match the user's email!"
 
     link_element = soup.find("a", id="link")
     assert link_element is not None, "Login link element with id 'link' not found!"
     login_url = link_element["href"]
-    assert validate_url(login_url, may_have_port=True,simple_host=True,), f"The URL '{login_url}' is not valid!"
+    assert validate_url(
+        login_url,
+        may_have_port=True,
+        simple_host=True,
+    ), f"The URL '{login_url}' is not valid!"
 
 
 @pytest.mark.e2e
@@ -394,14 +471,13 @@ async def test_user_login_with_new_password(e2e_client, e2e_db_session):
     - Validate that the refresh token is stored in the database.
     """
 
-    user_data = {
-        "email": "test@mate.com",
-        "password": "NewSecurePassword123!"
-    }
+    user_data = {"email": "test@mate.com", "password": "NewSecurePassword123!"}
 
     login_url = "/api/v1/accounts/login/"
     response = await e2e_client.post(login_url, json=user_data)
-    assert response.status_code == 201, f"Expected status code 201, got {response.status_code}"
+    assert (
+        response.status_code == 201
+    ), f"Expected status code 201, got {response.status_code}"
 
     response_data = response.json()
     assert "access_token" in response_data, "Access token is missing in response!"
@@ -418,4 +494,6 @@ async def test_user_login_with_new_password(e2e_client, e2e_db_session):
     stored_token = result.scalars().first()
 
     assert stored_token is not None, "Refresh token was not stored in the database!"
-    assert stored_token.user.email == user_data["email"], "Refresh token is linked to the wrong user!"
+    assert (
+        stored_token.user.email == user_data["email"]
+    ), "Refresh token is linked to the wrong user!"

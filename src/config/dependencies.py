@@ -15,27 +15,28 @@ from security.token_manager import JWTAuthManager
 from exceptions.security import TokenExpiredError, InvalidTokenError, BaseSecurityError
 from storages import S3StorageInterface, S3StorageClient
 
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
-def get_settings() -> BaseAppSettings:
-    """
-    Retrieve the application settings based on the current environment.
+# def get_settings() -> BaseAppSettings:
+#     """
+#     Retrieve the application settings based on the current environment.
 
-    This function reads the 'ENVIRONMENT' environment variable (defaulting to 'developing' if not set)
-    and returns a corresponding settings instance. If the environment is 'testing', it returns an instance
-    of TestingSettings; otherwise, it returns an instance of Settings.
+#     This function reads the 'ENVIRONMENT' environment variable (defaulting to 'developing' if not set)
+#     and returns a corresponding settings instance. If the environment is 'testing', it returns an instance
+#     of TestingSettings; otherwise, it returns an instance of Settings.
 
-    Returns:
-        BaseAppSettings: The settings instance appropriate for the current environment.
-    """
-    environment = os.getenv("ENVIRONMENT", "developing")
-    if environment == "testing":
-        return TestingSettings()
-    return Settings()
+#     Returns:
+#         BaseAppSettings: The settings instance appropriate for the current environment.
+#     """
+#     environment = os.getenv("ENVIRONMENT", "developing")
+#     if environment == "testing":
+#         return TestingSettings()
+#     return Settings()
 
 
-def get_jwt_auth_manager(settings: BaseAppSettings = Depends(get_settings)) -> JWTAuthManagerInterface:
+def get_jwt_auth_manager(
+    settings: BaseAppSettings = Depends(get_settings),
+) -> JWTAuthManagerInterface:
     """
     Create and return a JWT authentication manager instance.
 
@@ -54,12 +55,12 @@ def get_jwt_auth_manager(settings: BaseAppSettings = Depends(get_settings)) -> J
     return JWTAuthManager(
         secret_key_access=settings.SECRET_KEY_ACCESS,
         secret_key_refresh=settings.SECRET_KEY_REFRESH,
-        algorithm=settings.JWT_SIGNING_ALGORITHM
+        algorithm=settings.JWT_SIGNING_ALGORITHM,
     )
 
 
 def get_accounts_email_notificator(
-    settings: BaseAppSettings = Depends(get_settings)
+    settings: BaseAppSettings = Depends(get_settings),
 ) -> EmailSenderInterface:
     """
     Retrieve an instance of the EmailSenderInterface configured with the application settings.
@@ -85,12 +86,12 @@ def get_accounts_email_notificator(
         activation_email_template_name=settings.ACTIVATION_EMAIL_TEMPLATE_NAME,
         activation_complete_email_template_name=settings.ACTIVATION_COMPLETE_EMAIL_TEMPLATE_NAME,
         password_email_template_name=settings.PASSWORD_RESET_TEMPLATE_NAME,
-        password_complete_email_template_name=settings.PASSWORD_RESET_COMPLETE_TEMPLATE_NAME
+        password_complete_email_template_name=settings.PASSWORD_RESET_COMPLETE_TEMPLATE_NAME,
     )
 
 
 def get_s3_storage_client(
-    settings: BaseAppSettings = Depends(get_settings)
+    settings: BaseAppSettings = Depends(get_settings),
 ) -> S3StorageInterface:
     """
     Retrieve an instance of the S3StorageInterface configured with the application settings.
@@ -110,41 +111,42 @@ def get_s3_storage_client(
         endpoint_url=settings.S3_STORAGE_ENDPOINT,
         access_key=settings.S3_STORAGE_ACCESS_KEY,
         secret_key=settings.S3_STORAGE_SECRET_KEY,
-        bucket_name=settings.S3_BUCKET_NAME
+        bucket_name=settings.S3_BUCKET_NAME,
     )
+
 
 async def get_current_user_id(
     request: Request,
-    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager)
+    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
 ) -> int:
     auth_header = request.headers.get("Authorization")
-    
+
     # 1. Проверка наличия заголовка
     if not auth_header:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authorization header is missing"
+            detail="Authorization header is missing",
         )
-    
+
     # 2. Проверка формата Bearer <token>
     parts = auth_header.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Authorization header format. Expected 'Bearer <token>'"
+            detail="Invalid Authorization header format. Expected 'Bearer <token>'",
         )
-    
+
     token = parts[1]
-    
+
     # 3. Валидация токена через менеджер
     payload = jwt_manager.decode_access_token(token)
     if not payload or "user_id" not in payload:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
         )
-    
+
     return payload["user_id"]
+
 
 async def get_current_active_user(
     token: str = Depends(oauth2_scheme),
@@ -154,13 +156,13 @@ async def get_current_active_user(
     try:
         payload = jwt_manager.decode_access_token(token)
         user_id = payload.get("user_id")
-        
+
         if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token payload.",
             )
-            
+
     except TokenExpiredError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -173,23 +175,23 @@ async def get_current_active_user(
             detail="Invalid authentication credentials.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # Далее получение пользователя из БД
     stmt = select(UserModel).where(UserModel.id == user_id)
     result = await db.execute(stmt)
     user = result.scalars().first()
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found.",
         )
-        
+
     # КРИТИЧЕСКАЯ ПРОВЕРКА ДЛЯ ЭТОГО ТЕСТА:
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or not active.",
         )
-        
+
     return user
